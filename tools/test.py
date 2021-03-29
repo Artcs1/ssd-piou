@@ -130,6 +130,7 @@ def vis_bbox(img, bbox, label=None, score=None, ax=None):
 def test_net(save_folder, net, cuda, testset, transform, thresh):
     # dump predictions and assoc. ground truth to text file for now
     filename = save_folder+'test.txt'
+    #print(filename)
     num_images = len(testset)
     for i in range(num_images):
         print('Testing image {:d}/{:d}....'.format(i+1, num_images))
@@ -161,7 +162,7 @@ def test_net(save_folder, net, cuda, testset, transform, thresh):
                     if boxes[gg,0]>=args.visual_threshold:
                         tt= boxes[gg,:]
                         print(tt)
-                        with open(r'/mnt/home/test_ciou.txt','a') as f1:
+                        with open(r'result/test_ciou.txt','a') as f1:
                             f1.write(str(i))
                             f1.write(' 		')
                             f1.write(str(t))
@@ -182,8 +183,9 @@ def test_net(save_folder, net, cuda, testset, transform, thresh):
                 #print(r[0])
  #plt.text(bb[0],bb[1],score,family='fantasy',fontsize=36,style='italic',color='mediumvioletred')
                 plt.axis('off')
-                plt.savefig('/mnt/home/ciou/%d.png'%(i))
-                plot.show()
+                plt.savefig('result/%d.png'%(i))
+                plt.clf()
+                #plot.show()
         pred_num = 0
         for i in range(detections.size(1)):
             j = 0

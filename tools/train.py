@@ -33,7 +33,7 @@ parser.add_argument('--basenet', default=None,#'vgg16_reducedfc.pth',
                     help='Pretrained base model')
 parser.add_argument('--batch_size', default=32, type=int,
                     help='Batch size for training')
-parser.add_argument('--max_epoch', default=232, type=int,
+parser.add_argument('--max_epoch', default=310, type=int,
                     help='Max Epoch for training')
 parser.add_argument('--resume', default=None, type=str,
                     help='Checkpoint state_dict file to resume training from')
@@ -187,6 +187,7 @@ def train():
             loss_l, loss_c = criterion(out, targets)
             loss = weight * loss_l + loss_c
             loss.backward()
+            nn.utils.clip_grad_value_(net.parameters(), clip_value=1.0)
             optimizer.step()
             t1 = time.time()
             loc_loss += loss_l.item()
@@ -194,7 +195,7 @@ def train():
             #print(iteration)
             if iteration % 10 == 0:
                 print('timer: %.4f sec.' % (t1 - t0))
-                print('iter ' + repr(iteration) + ' || Loss: %.4f ||' % (loss.item()), end=' ')
+                print('iter ' + repr(iteration) + ' || Loss: %.4f ||' % (loss_l.item()), end=' ')
 
 
             if args.visdom:

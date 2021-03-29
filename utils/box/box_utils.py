@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+#-*- coding: utf-8 -*-
 import torch
 import math
 
@@ -93,6 +93,9 @@ def bbox_overlaps_ciou(bboxes1, bboxes2):
     return cious
 
 def bbox_overlaps_iou(bboxes1, bboxes2):
+
+    
+
     rows = bboxes1.shape[0]
     cols = bboxes2.shape[0]
     ious = torch.zeros((rows, cols))
@@ -157,6 +160,71 @@ def bbox_overlaps_giou(bboxes1, bboxes2):
         ious = ious.T
     return ious
 
+def bbox_overlaps_piou(bboxes1, bboxes2, l = 1, weight=2, not_freezed=True, eps=1e-3):
+    
+    bboxe1 = center_size(bboxes1)
+    bboxe2 = center_size(bboxes2)
+
+    gbboxes1 = gbb_form(bboxe1)
+    gbboxes2 = gbb_form(bboxe2)
+
+    b1_x1 = gbboxes1[:,0]
+    b1_y1 = gbboxes1[:,1]
+    b1_a1 = gbboxes1[:,2]
+    b1_b1 = gbboxes1[:,3]
+
+    b2_x2 = gbboxes2[:,0]
+    b2_y2 = gbboxes2[:,1]
+    b2_a2 = gbboxes2[:,2]
+    b2_b2 = gbboxes2[:,3]
+
+    if not_freezed:
+        t1 = ((torch.pow(b1_x1 - b2_x2,2.0)/(b1_a1 + b2_a2+eps)) + (torch.pow(b1_y1 - b2_y2,2.0)/(b1_b1 + b2_b2+eps)))/4.0
+        t2 = torch.log(((b1_a1+b2_a2)*(b1_b1+b2_b2)))/2.0
+        t3 = torch.log(((b1_a1*b1_b1*b2_a2*b2_b2)))/4.0
+        t4 = torch.log(torch.tensor(2.0, device = t3.device))
+        B_d = t1 + t2 - t3 - t4
+    else:
+        B_d = torch.pow(b1_x1-b2_x2,2.0)/(2.0*b1_a1+eps) + torch.pow(b1_y1-b2_y2,2.0)/(2.0*b1_b1+eps)
+
+    B_d = torch.clamp(B_d,eps,100.0)
+    l1 = torch.sqrt(1.0-torch.exp(-B_d)+eps)
+    l2 = torch.pow(l1, 2.0)
+    l3 = -torch.log(1.0 - l2+eps)
+    if l==1:
+        pious = l1
+    if l==2:
+        pious = l2
+    if l==3:
+        pious = l3
+
+
+    return weight * pious
+
+def gbb_form(boxes):
+    """ Convert prior_boxes to (x, y, a, b)
+    representation for comparison to point form ground truth data.
+    Args:
+        boxes: (tensor) center-size default boxes from priorbox layers.
+    Return:
+        boxes: (tensor) Converted x, y, a, b form of boxes.
+    """
+
+    return torch.cat((boxes[:,:2],torch.pow(boxes[:,2:],2)/12),1)
+
+
+def bb_form(boxes):
+    """ Convert prior_boxes to (x, y, w, h) from a gbb form
+    representation for comparison to point form ground truth data.
+    Args:
+        boxes: (tensor) gbb priorbox layers.
+    Return:
+        boxes: (tensor) Converted x, y, w, h form of boxes.
+    """
+ 
+    return torch.cat((boxes[:,:2],torch.sqrt(12*boxes[:,2:])),1)
+
+
 def point_form(boxes):
     """ Convert prior_boxes to (xmin, ymin, xmax, ymax)
     representation for comparison to point form ground truth data.
@@ -178,8 +246,8 @@ def center_size(boxes):
     Return:
         boxes: (tensor) Converted xmin, ymin, xmax, ymax form of boxes.
     """
-    return torch.cat((boxes[:, 2:] + boxes[:, :2])/2,  # cx, cy
-                     boxes[:, 2:] - boxes[:, :2], 1)  # w, h
+    return torch.cat(((boxes[:, 2:] + boxes[:, :2])/2,  # cx, cy
+                     boxes[:, 2:] - boxes[:, :2]), 1)  # w, h
 
 
 def intersect(box_a, box_b):

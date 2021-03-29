@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from ..box import match, log_sum_exp
-from ..box import match_ious, bbox_overlaps_iou, bbox_overlaps_giou, bbox_overlaps_diou, bbox_overlaps_ciou, decode
+from ..box import match_ious, bbox_overlaps_iou, bbox_overlaps_giou, bbox_overlaps_diou, bbox_overlaps_ciou, decode, bbox_overlaps_piou
 
 class FocalLoss(nn.Module):
     """
@@ -60,6 +60,7 @@ class FocalLoss(nn.Module):
             loss = batch_loss.sum()
         return loss
 
+it = 0
 
 class IouLoss(nn.Module):
 
@@ -71,6 +72,7 @@ class IouLoss(nn.Module):
         self.loss = losstype
     def forward(self, loc_p, loc_t,prior_data):
         num = loc_p.shape[0] 
+        global it
         
         if self.pred_mode == 'Center':
             decoded_boxes = decode(loc_p, prior_data, self.variances)
@@ -85,8 +87,17 @@ class IouLoss(nn.Module):
                 if self.loss == 'Diou':
                     loss = torch.sum(1.0 - bbox_overlaps_diou(decoded_boxes,loc_t))
                 else:
-                    loss = torch.sum(1.0 - bbox_overlaps_ciou(decoded_boxes, loc_t))            
-     
+                    if self.loss == 'Ciou':
+                        loss = torch.sum(1.0 - bbox_overlaps_ciou(decoded_boxes, loc_t))            
+                    else:
+                        #loss = torch.sum(bbox_overlaps_piou(decoded_boxes, loc_t, 2, 1, True))
+                        if it < 16000:
+                            loss = torch.sum(bbox_overlaps_piou(decoded_boxes, loc_t, 3, 1, True))
+                        elif it < 47000:
+                            loss = torch.sum(bbox_overlaps_piou(decoded_boxes, loc_t, 1, 2, True))
+                        else:
+                            loss = torch.sum(bbox_overlaps_piou(decoded_boxes, loc_t, 1, 2, False))
+                        it+=1
         if self.size_sum:
             loss = loss
         else:

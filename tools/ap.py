@@ -20,6 +20,7 @@ import argparse
 import numpy as np
 import pickle
 
+
 from tqdm import tqdm
 
 if sys.version_info[0] == 2:
@@ -212,6 +213,29 @@ def voc_ap(rec, prec, use_07_metric=True):
     return ap
 
 
+def gbb_form(boxes):
+    """ Convert prior_boxes to (x, y, a, b)
+    representation for comparison to point form ground truth data.
+    Args:
+        boxes: (tensor) center-size default boxes from priorbox layers.
+    Return:
+        boxes: (tensor) Converted x, y, a, b form of boxes.
+    """
+
+    return np.concatenate((boxes[:,:2],np.power(boxes[:,2:],2.)/12.),1)
+
+def center_size(boxes):
+    """ Convert prior_boxes to (cx, cy, w, h)
+    representation for comparison to center-size form ground truth data.
+    Args:
+        boxes: (tensor) point_form boxes
+    Return:
+        boxes: (tensor) Converted xmin, ymin, xmax, ymax form of boxes.
+    """
+    return np.concatenate(((boxes[:, 2:] + boxes[:, :2])/2.0,  # cx, cy
+                     boxes[:, 2:] - boxes[:, :2]), 1)  # w, h
+
+
 def voc_eval(detpath,
              annopath,
              imagesetfile,
@@ -242,6 +266,7 @@ cachedir: Directory for caching the annotations
 # assumes imagesetfile is a text file with each line an image name
 # cachedir caches the annotations in a pickle file
 # first load gt
+    ProbIoU = True
     cachefile = os.path.join(cachedir, 'annots.pkl')
     # read list of images
     with open(imagesetfile, 'r') as f:
@@ -305,17 +330,46 @@ cachedir: Directory for caching the annotations
             if BBGT.size > 0:
                 # compute overlaps
                 # intersection
-                ixmin = np.maximum(BBGT[:, 0], bb[0])
-                iymin = np.maximum(BBGT[:, 1], bb[1])
-                ixmax = np.minimum(BBGT[:, 2], bb[2])
-                iymax = np.minimum(BBGT[:, 3], bb[3])
-                iw = np.maximum(ixmax - ixmin, 0.)
-                ih = np.maximum(iymax - iymin, 0.)
-                inters = iw * ih
-                uni = ((bb[2] - bb[0]) * (bb[3] - bb[1]) +
-                       (BBGT[:, 2] - BBGT[:, 0]) *
-                       (BBGT[:, 3] - BBGT[:, 1]) - inters)
-                overlaps = inters / uni
+                if ProbIoU == True:
+                    bb = bb.reshape(1,4)
+                    C_BBGT = center_size(BBGT)
+                    C_bb   = center_size(bb)
+                    G_BBGT = gbb_form(BBGT)
+                    G_bb   = gbb_form(bb)
+
+                    b1_x1 = G_BBGT[:,0]
+                    b1_y1 = G_BBGT[:,1]
+                    b1_a1 = G_BBGT[:,2]
+                    b1_b1 = G_BBGT[:,3]
+
+                    b2_x2 = G_bb[:,0]
+                    b2_y2 = G_bb[:,1]
+                    b2_a2 = G_bb[:,2]
+                    b2_b2 = G_bb[:,3]
+                    eps = 1e-3
+
+                    t1 = ((np.power(b1_x1 - b2_x2,2)/(b1_a1 + b2_a2+eps)) + (np.power(b1_y1 - b2_y2,2)/(b1_b1 + b2_b2+eps)))/4.0
+                    t2 = np.log((b1_a1+b2_a2)*(b1_b1+b2_b2)+eps)/2.0
+                    t3 = np.log(b1_a1*b1_b1*b2_a2*b2_b2+eps)/4.0
+                    t4 = np.log(2.0)
+
+                    B_d = t1 + t2 - t3 - t4
+                    B_d = np.clip(B_d,0,100)
+                    H = np.sqrt(1-np.exp(-B_d)+eps)
+                    overlaps = 1 - H
+                 
+                else:
+                    ixmin = np.maximum(BBGT[:, 0], bb[0])
+                    iymin = np.maximum(BBGT[:, 1], bb[1])
+                    ixmax = np.minimum(BBGT[:, 2], bb[2])
+                    iymax = np.minimum(BBGT[:, 3], bb[3])
+                    iw = np.maximum(ixmax - ixmin, 0.)
+                    ih = np.maximum(iymax - iymin, 0.)
+                    inters = iw * ih
+                    uni = ((bb[2] - bb[0]) * (bb[3] - bb[1]) +
+                           (BBGT[:, 2] - BBGT[:, 0]) *
+                           (BBGT[:, 3] - BBGT[:, 1]) - inters)
+                    overlaps = inters / uni
                 ovmax = np.max(overlaps)
                 jmax = np.argmax(overlaps)
 
@@ -356,7 +410,6 @@ def test_net(save_folder, net, cuda, dataset, top_k,im_size=300, thresh=0.05):
     # timers
     _t = {'im_detect': Timer(), 'misc': Timer()}
 
-    print(num_images)
     for i in tqdm(range(num_images)):
         with torch.no_grad():
             im, gt, h, w = dataset.pull_item(i)

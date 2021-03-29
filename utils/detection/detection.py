@@ -168,7 +168,7 @@ class Detect(Function):
         """
 		
 	# This funtion is no longer supported. Due to extremely time-consuming.
-		
+	
         num = loc_data.size(0) 
         num_priors = prior_data.size(0)
         output = torch.zeros(num, self.num_classes, self.top_k, 5)
@@ -186,11 +186,12 @@ class Detect(Function):
                 scores = conf_scores[cl][c_mask]
                 if scores.size(0) == 0:
                     continue
+                #print(scores.shape)
                 l_mask = c_mask.unsqueeze(1).expand_as(decoded_boxes)
                 boxes = decoded_boxes[l_mask].view(-1, 4)
                 # idx of highest scoring and non-overlapping boxes per class
                 if self.nms_kind == "greedynms":
-                    ids, count = diounms(boxes, scores, self.nms_thresh, self.top_k)
+                    ids, count = nms(boxes, scores, self.nms_thresh, self.top_k)
                 else:
                     if self.nms_kind == "diounms":
                         ids, count = diounms(boxes, scores, self.nms_thresh, self.top_k, self.beta1)
