@@ -90,7 +90,7 @@ class IouLoss(nn.Module):
                     if self.loss == 'Ciou':
                         loss = torch.sum(1.0 - bbox_overlaps_ciou(decoded_boxes, loc_t))            
                     else:
-                        loss = torch.sum(bbox_overlaps_piou(decoded_boxes, loc_t, 2, 1, True))
+                        loss = torch.sum(bbox_overlaps_piou(decoded_boxes, loc_t, l=1, weight=1, not_freezed=True))
                         #if it < 16000:
                         #    loss = torch.sum(bbox_overlaps_piou(decoded_boxes, loc_t, 3, 1, True))
                         #elif it < 47000:

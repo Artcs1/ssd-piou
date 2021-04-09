@@ -3,7 +3,7 @@ import sys
 sys.path.append(os.getcwd())
 from model import build_ssd
 from data import *
-from config import crack,voc
+from config import crack
 from utils import MultiBoxLoss
 
 
@@ -33,7 +33,7 @@ parser.add_argument('--basenet', default=None,#'vgg16_reducedfc.pth',
                     help='Pretrained base model')
 parser.add_argument('--batch_size', default=32, type=int,
                     help='Batch size for training')
-parser.add_argument('--max_epoch', default=232 type=int,
+parser.add_argument('--max_epoch', default=232, type=int,
                     help='Max Epoch for training')
 parser.add_argument('--resume', default=None, type=str,
                     help='Checkpoint state_dict file to resume training from')
@@ -57,6 +57,10 @@ parser.add_argument('--work_dir', default='work_dir/',
                     help='Directory for saving checkpoint models')
 
 parser.add_argument('--weight', default=5, type=int)
+
+parser.add_argument("--loss",default="Iou",type=str)
+parser.add_argument("--work_name",default="SSD300_VOC_FPN_IOU",type=str)
+
 args = parser.parse_args()
 
 weight = args.weight
@@ -73,6 +77,34 @@ else:
 
 if not os.path.exists(args.work_dir):
     os.mkdir(args.work_dir)
+
+voc= {
+    'model':"resnet50",
+    'losstype':args.loss,
+    'num_classes':21,
+    'mean':(123.675, 116.28, 103.53),
+    'std':(1.0,1.0,1.0),#(58.395, 57.12, 57.375),
+    'lr_steps': (80000, 100000,120000),
+    'max_iter': 120000,
+    'max_epoch': 80,
+    'feature_maps': [38, 19, 10, 5, 3, 1],
+    'min_dim': 300,
+    'backbone_out':[512,1024,2048,512,256,256],
+    'neck_out':[256,256,256,256,256,256],
+    'steps':[8, 16, 32, 64, 100, 300],
+    'min_sizes': [30, 60, 111, 162, 213, 264],
+    'max_sizes': [60, 111, 162, 213, 264, 315],
+    'aspect_ratios': [[2], [2, 3], [2, 3], [2, 3], [2], [2]],
+    'variance': [0.1, 0.2],
+    'clip': True, 
+    'nms_kind': "greedynms",       #Currently, NMS only surports 'cluster_nms', 'cluster_diounms', 'cluster_weighted_nms', 'cluster_weighted_diounms'
+    'beta1':0.5,
+    'name': 'VOC',
+    'work_name':args.work_name,
+}
+
+
+
 
 
 def data_eval(dataset, net):
