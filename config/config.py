@@ -1,9 +1,10 @@
 # config.py
 import os.path
-
+import argparse
 # gets home dir cross platform
 #HOME = os.path.expanduser("~")
 #HOME = os.path.abspath(os.path.dirname(__file__)).split("/") this path
+
 HOME = os.path.join(os.getcwd()) #../path
 # for making bounding boxes pretty
 COLORS = ((255, 0, 0, 128), (0, 255, 0, 128), (0, 0, 255, 128),
@@ -16,7 +17,7 @@ COLORS = ((255, 0, 0, 128), (0, 255, 0, 128), (0, 0, 255, 128),
 
 voc= {
     'model':"resnet50",
-    'losstype':'Piou',
+    'losstype':'Iou',
     'num_classes':21,
     'mean':(123.675, 116.28, 103.53),
     'std':(1.0,1.0,1.0),#(58.395, 57.12, 57.375),
@@ -36,7 +37,7 @@ voc= {
     'nms_kind': "greedynms",       #Currently, NMS only surports 'cluster_nms', 'cluster_diounms', 'cluster_weighted_nms', 'cluster_weighted_diounms'
     'beta1':0.5,
     'name': 'VOC',
-    'work_name':"SSD300_VOC_FPN_PIOU",
+    'work_name':'SSD300_VOC_FPN_IOU',
 }
 
 

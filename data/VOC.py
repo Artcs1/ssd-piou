@@ -92,7 +92,7 @@ class VOCDetection(data.Dataset):
             (default: 'VOC2007')
     """
     def __init__(self, root,
-                 image_sets=[('2007', 'trainval'),('2012','trainval')],
+                 image_sets=[('2007', 'train'),('2012','trainval')],
                  transform=None, bbox_transform=VOCAnnotationTransform(class_to_ind = VOC_CLASSES),
                  dataset_name='VOC0712'):
         self.root = root

@@ -50,6 +50,8 @@ parser.add_argument('--voc_root', default=VOC_ROOT,
                     help='Location of VOC root directory')
 parser.add_argument('--over_thresh', default=0.5, type=float,
                     help='Cleanup and remove results files following eval')
+parser.add_argument('--ProbIoU', default=False, type=str2bool,
+                    help='Change the metric evaluation')
 args = parser.parse_args()
 
 if not os.path.exists(args.save_folder):
@@ -266,7 +268,7 @@ cachedir: Directory for caching the annotations
 # assumes imagesetfile is a text file with each line an image name
 # cachedir caches the annotations in a pickle file
 # first load gt
-    ProbIoU = True
+    ProbIoU = args.ProbIoU
     cachefile = os.path.join(cachedir, 'annots.pkl')
     # read list of images
     with open(imagesetfile, 'r') as f:
@@ -459,6 +461,7 @@ if __name__ == '__main__':
     net = build_ssd('test', size = 300, cfg = voc)            # initialize SSD
     net.load_state_dict(torch.load(args.trained_model))
 
+    print(args.ProbIoU)
     print('Finished loading model!')
     # load data
     dataset = VOCDetection(args.voc_root, [('2007', 'test')],

@@ -17,7 +17,7 @@ import torch.utils.data as data
 
 import argparse
 from tqdm import tqdm
-
+import numpy as np
 
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
@@ -33,7 +33,7 @@ parser.add_argument('--basenet', default=None,#'vgg16_reducedfc.pth',
                     help='Pretrained base model')
 parser.add_argument('--batch_size', default=32, type=int,
                     help='Batch size for training')
-parser.add_argument('--max_epoch', default=232, type=int,
+parser.add_argument('--max_epoch', default=220, type=int,
                     help='Max Epoch for training')
 parser.add_argument('--resume', default=None, type=str,
                     help='Checkpoint state_dict file to resume training from')
@@ -134,6 +134,7 @@ def train():
         dataset = VOCDetection(root=VOC_ROOT,
                                transform = SSDAugmentation(cfg['min_dim'],
                                 mean = cfg['mean'],std = cfg['std']))
+        valid_dataset = VOCDetection(root=VOC_ROOT, image_sets=[('2007', 'val')], transform = SSDAugmentation(cfg['min_dim'],mean = cfg['mean'],std = cfg['std'])) 
         print(len(dataset))
     elif args.dataset == 'CRACK':
         if not os.path.exists(CRACK_ROOT):
@@ -145,6 +146,11 @@ def train():
                             mean = cfg['mean'],std = cfg['std']))
 
     data_loader = data.DataLoader(dataset, args.batch_size,
+                                  num_workers=args.num_workers,
+                                  shuffle=True, collate_fn=detection_collate,
+                                  pin_memory=True)
+
+    valid_loader = data.DataLoader(valid_dataset, args.batch_size,
                                   num_workers=args.num_workers,
                                   shuffle=True, collate_fn=detection_collate,
                                   pin_memory=True)
@@ -176,6 +182,17 @@ def train():
                             neg_mining = True, neg_pos = 3,neg_overlap = 0.5,
                             encode_target = False, use_gpu = args.cuda,loss_name = cfg['losstype'])
 
+    criterion_iou     = MultiBoxLoss(cfg = cfg,overlap_thresh = 0.5,
+                            prior_for_matching = True,bkg_label = 0,
+                            neg_mining = True, neg_pos = 3,neg_overlap = 0.5,
+                            encode_target = False, use_gpu = args.cuda,loss_name = 'Iou')
+
+    criterion_probiou = MultiBoxLoss(cfg = cfg,overlap_thresh = 0.5,
+                            prior_for_matching = True,bkg_label = 0,
+                            neg_mining = True, neg_pos = 3,neg_overlap = 0.5,
+                            encode_target = False, use_gpu = args.cuda,loss_name = 'Piou')
+
+
     if args.visdom:
         import visdom
         viz = visdom.Visdom(env=cfg['work_name'])
@@ -195,6 +212,9 @@ def train():
     step_index = 0
     loc_loss = 0
     conf_loss = 0
+    BEST_LOSS      =  10000
+    BEST_IOU50     =  10000
+    BEST_PROBIOU50 =  10000
     print(args.max_epoch)
     for epoch in range(args.max_epoch):
         for ii, batch_iterator in tqdm(enumerate(data_loader)):
@@ -235,6 +255,41 @@ def train():
                     update_vis_plot(viz,iteration, loss_l.item(), loss_c.item(),
                                 iter_plot, epoch_plot, 'append')
 
+        loss      = []
+        iou50     = []
+        probiou50 = []
+        for ii, batch_iterator in tqdm(enumerate(valid_loader)):
+            images, targets = batch_iterator
+            if args.cuda:
+                images  = images.cuda()
+                targets = [ann.cuda() for ann in targets]
+            else:
+                images  = images
+                targets = [ann for ann in targets]
+            #net.eval()
+            out  = net(images,'train')
+            loss_l, loss_c = criterion(out, targets)
+            loss.append(weight*loss_l.item()+loss_c.item())
+            loss_l, loss_c = criterion_iou(out,targets)
+            iou50.append(loss_l.item())
+            loss_l, loss_c = criterion_probiou(out,targets)
+            probiou50.append(loss_l.item())
+            
+        LOSS      = np.mean(np.array(loss))
+        IOU50     = np.mean(np.array(iou50))
+        PROBIOU50 = np.mean(np.array(probiou50))
+        if LOSS < BEST_LOSS:
+            model_L = net.state_dict()
+            BEST_LOSS = LOSS
+        if IOU50 < BEST_IOU50:
+            model_I = net.state_dict()
+            BEST_IOU50 = IOU50
+        if PROBIOU50 < BEST_PROBIOU50:
+            model_P = net.state_dict()
+            BEST_PROBIOU50 = PROBIOU50
+            #
+
+
         if epoch % 10 == 0 and epoch >60:#epoch>1000 and epoch % 50 == 0:
             print('Saving state, iter:', iteration)
             #print('loss_l:'+weight * loss_l+', loss_c:'+'loss_c')
@@ -249,6 +304,9 @@ def train():
         loc_loss = 0
         conf_loss = 0
 
+    torch.save(model_L, args.work_dir+cfg['work_name']+'/ssd'+'best_loss_.pth')
+    torch.save(model_I, args.work_dir+cfg['work_name']+'/ssd'+'best_iou_.pth')
+    torch.save(model_P, args.work_dir+cfg['work_name']+'/ssd'+'best_probiou_.pth')
     torch.save(net.state_dict(),args.work_dir+cfg['work_name']+'/ssd'+repr(epoch)+ str(args.weight) +'_.pth')
 
 def adjust_learning_rate(optimizer, gamma, step):
