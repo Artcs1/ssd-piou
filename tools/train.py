@@ -209,6 +209,7 @@ def train():
     epoch_size = len(dataset) // args.batch_size
     print('Training SSD on:', dataset.name,epoch_size)
     iteration = args.start_iter
+    epocas = 0
     step_index = 0
     loc_loss = 0
     conf_loss = 0
@@ -217,6 +218,7 @@ def train():
     BEST_PROBIOU50 =  10000
     print(args.max_epoch)
     for epoch in range(args.max_epoch):
+        epocas+=1
         for ii, batch_iterator in tqdm(enumerate(data_loader)):
             iteration += 1
 
