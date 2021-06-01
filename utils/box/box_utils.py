@@ -160,7 +160,7 @@ def bbox_overlaps_giou(bboxes1, bboxes2):
         ious = ious.T
     return ious
 
-def bbox_overlaps_piou(bboxes1, bboxes2, l = 1, weight=2, not_freezed=True, eps=1e-3):
+def bbox_overlaps_probiou(bboxes1, bboxes2, mode = 'l1', weight=2, not_freezed=True, eps=1e-3):
     
     bboxe1 = center_size(bboxes1)
     bboxe2 = center_size(bboxes2)
@@ -189,17 +189,16 @@ def bbox_overlaps_piou(bboxes1, bboxes2, l = 1, weight=2, not_freezed=True, eps=
 
     B_d = torch.clamp(B_d,eps,100.0)
     l1 = torch.sqrt(1.0-torch.exp(-B_d)+eps)
-    l2 = torch.pow(l1, 2.0)
-    l3 = -torch.log(1.0 - l2+eps)
-    if l==1:
-        pious = l1
-    if l==2:
-        pious = l2
-    if l==3:
-        pious = l3
+    l_i = torch.pow(l1, 2.0)
+    l2 = -torch.log(1.0 - l_i+eps)
+
+    if mode=='l1':
+        probious = l1
+    if mode=='l2':
+        probious = l2
 
 
-    return weight * pious
+    return weight * probious
 
 def gbb_form(boxes):
     """ Convert prior_boxes to (x, y, a, b)

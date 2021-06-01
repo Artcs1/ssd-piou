@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from ..box import match, log_sum_exp
-from ..box import match_ious, bbox_overlaps_iou, bbox_overlaps_giou, bbox_overlaps_diou, bbox_overlaps_ciou, decode, bbox_overlaps_piou
+from ..box import match_ious, bbox_overlaps_iou, bbox_overlaps_giou, bbox_overlaps_diou, bbox_overlaps_ciou, decode, bbox_overlaps_probiou
 
 class FocalLoss(nn.Module):
     """
@@ -90,13 +90,11 @@ class IouLoss(nn.Module):
                     if self.loss == 'Ciou':
                         loss = torch.sum(1.0 - bbox_overlaps_ciou(decoded_boxes, loc_t))            
                     else:
-                        #loss = torch.sum(bbox_overlaps_piou(decoded_boxes, loc_t, l=1, weight=1, not_freezed=True))
-                        if it < 55000:
-                            loss = torch.sum(bbox_overlaps_piou(decoded_boxes, loc_t, 3, 10, True))
-                        elif
-                            loss = torch.sum(bbox_overlaps_piou(decoded_boxes, loc_t, 1, 2, True))
+                        loss = torch.sum(bbox_overlaps_probiou(decoded_boxes, loc_t, mode='l1', weight=1, not_freezed=True))
+                        #if it < 55000:
+                        #    loss = torch.sum(bbox_overlaps_probiou(decoded_boxes, loc_t, 3, 10, True))
                         #else:
-                        #    loss = torch.sum(bbox_overlaps_piou(decoded_boxes, loc_t, 1, 2, False))
+                        #    loss = torch.sum(bbox_overlaps_probiou(decoded_boxes, loc_t, 1, 2, True))
                         it+=1
         if self.size_sum:
             loss = loss

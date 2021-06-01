@@ -131,7 +131,7 @@ def train():
             parser.error('Must specify dataset_root if specifying dataset')
 
         cfg = voc
-        dataset = VOCDetection(root=VOC_ROOT,
+        dataset = VOCDetection(root=VOC_ROOT, image_sets=[('2007','train')],
                                transform = SSDAugmentation(cfg['min_dim'],
                                 mean = cfg['mean'],std = cfg['std']))
         valid_dataset = VOCDetection(root=VOC_ROOT, image_sets=[('2007', 'val')], transform = SSDAugmentation(cfg['min_dim'],mean = cfg['mean'],std = cfg['std'])) 
@@ -281,13 +281,13 @@ def train():
         IOU50     = np.mean(np.array(iou50))
         PROBIOU50 = np.mean(np.array(probiou50))
         if LOSS < BEST_LOSS:
-            model_L = net.state_dict()
+            model_L = net.state_dict().copy()
             BEST_LOSS = LOSS
         if IOU50 < BEST_IOU50:
-            model_I = net.state_dict()
+            model_I = net.state_dict().copy()
             BEST_IOU50 = IOU50
         if PROBIOU50 < BEST_PROBIOU50:
-            model_P = net.state_dict()
+            model_P = net.state_dict().copy()
             BEST_PROBIOU50 = PROBIOU50
             #
 
